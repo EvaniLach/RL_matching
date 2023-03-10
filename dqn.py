@@ -4,6 +4,7 @@ import random
 
 from dc import *
 from hospital import *
+from log import *
 
 # Define the deep reinforcement learning algorithm
 class DQN:
@@ -37,13 +38,17 @@ class DQN:
 
         return model
 
+        # TODO: save and load trained models
+        # model.save('path/to/location')
+        # model = keras.models.load_model('path/to/location')
+
 
     def select_action(self, state):                         # Method to select the action to take
         if np.random.rand() <= self.epsilon:                # Choose a random action with probability epsilon
             Q_values = self.env.action_space.sample()
         else:                                               # Choose the action with the highest predicted Q-value
             # Predict the action given the state.
-            Q_values = self.model.predict(np.ravel(state).reshape(1,-1))
+            Q_values = self.model.predict(np.ravel(state).reshape(1,-1), verbose=0)
 
         # For each row in the Q_matrix (for each blood group), put a 1 in the cell with the highest Q-value.
         # action = np.eye(self.env.action_space.shape[1])[np.argmax(np.reshape(Q_values, self.env.action_space.shape), axis=1)]
@@ -64,12 +69,12 @@ class DQN:
             state, action, reward, next_state, _ = sample
 
             # Compute the target Q-values
-            Q_next = np.reshape(self.model.predict(np.ravel(next_state).reshape(1,-1)), self.env.action_space.shape)             # Predict the Q-values for the next states
+            Q_next = np.reshape(self.model.predict(np.ravel(next_state).reshape(1,-1), verbose=0), self.env.action_space.shape)             # Predict the Q-values for the next states
             max_Q_next = np.max(Q_next, axis=1)
             Q_target = reward + (self.gamma * max_Q_next)  # Compute the target Q-values using the Bellman equation
 
             # Compute the current Q-values
-            Q_table = np.reshape(self.model.predict(np.ravel(state).reshape(1,-1)), self.env.action_space.shape)             # Predict the Q-values for the next states
+            Q_table = np.reshape(self.model.predict(np.ravel(state).reshape(1,-1), verbose=0), self.env.action_space.shape)             # Predict the Q-values for the next states
             Q_table[:,action] = Q_target # Update the target Q-values for the actions taken
 
             states.append(np.ravel(state).reshape(1,-1))
@@ -89,19 +94,24 @@ class DQN:
             dc = Distribution_center(SETTINGS, e)
             hospital = Hospital(SETTINGS, htype, e)
 
+            df = initialize_output_dataframe(SETTINGS, PARAMS, hospital, e)
+
             self.env.reset(PARAMS, dc, hospital)    # Reset the environment
             state = self.env.state
             day = 0
             total_reward = 0
             
             while day < (SETTINGS.init_days + SETTINGS.test_days):
-                print(f"Day: {day}")
                 
                 action = self.select_action(state)    # Select an action using the Q-network's epsilon-greedy policy
-                next_state, reward, next_day = self.env.step(SETTINGS, PARAMS, action, dc, hospital)   # Take the action and receive the next state, reward and next day
+                next_state, reward, next_day, df = self.env.step(SETTINGS, PARAMS, action, dc, hospital, day, df)   # Take the action and receive the next state, reward and next day
                 self.memory.append([state, action, reward, next_state, day])    # Store the experience tuple in memory
                 total_reward += reward
 
+                print(f"Day {day}, reward {reward}.")
+                df.loc[day,"logged"] = True
+                df.to_csv(f"results/{SETTINGS.model_name}/RL_{e}.csv", sep=',', index=True)
+                
                 # Update epsilon
                 self.epsilon = max(self.epsilon * self.epsilon_decay, self.epsilon_min)
 

@@ -16,6 +16,9 @@ def main():
     SETTINGS = Settings()
     PARAMS = Params(SETTINGS)
 
+    for path in ["results", "results/"+SETTINGS.model_name]:
+        check_dir_existence(path)
+
     # Get the hospital's type ('regional' or 'university')
     htype = max(SETTINGS.n_hospitals, key = lambda i: SETTINGS.n_hospitals[i])
 

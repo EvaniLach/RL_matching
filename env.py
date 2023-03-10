@@ -40,7 +40,9 @@ class MatchingEnv(gym.Env):
 
 
     # action = |bloodgroups| × (|I| + 1)
-    def step(self, SETTINGS, PARAMS, action, dc, hospital):
+    def step(self, SETTINGS, PARAMS, action, dc, hospital, day, df):
+
+        ABOD_names = PARAMS.ABOD
 
         ######################
         ## STATE AND ACTION ##
@@ -51,9 +53,10 @@ class MatchingEnv(gym.Env):
 
         # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| × max age
         I = self.state[:,:PARAMS.max_age]
+        R = self.state[:,PARAMS.max_age:]
         
         # Create lists of blood groups in integer representation.
-        inventory, issued_action, R = [], [], []
+        inventory, issued_action, requests_today = [], [], []
         for bg in bloodgroups:
             # All blood groups present in the inventory.
             inventory.extend([bg] * int(sum(I[bg])))
@@ -63,7 +66,18 @@ class MatchingEnv(gym.Env):
             issued_action.extend([bg] * action[bg])
 
             # All requests from the state that need to be satisfied today.
-            R.extend([bg] * int(self.state[bg,-1]))
+            requests_today.extend([bg] * int(R[bg,-1]))
+
+        df.loc[day,"num units requested"] = len(requests_today)
+        df.loc[day,"num supplied products"] = sum(I[:,0])
+
+        major_bins = len(bloodgroups) / len(ABOD_names)
+        for m in range(len(ABOD_names)):
+            start = int(m * major_bins)
+            end = int((m * major_bins) + major_bins)
+            df.loc[day,f"num supplied {ABOD_names[m]}"] = sum(I[start:end, 0])
+            df.loc[day,f"num requests {ABOD_names[m]}"] = sum(R[start:end, -1])
+            df.loc[day,f"num {ABOD_names[m]} in inventory"] = sum(sum(I[start:end]))
 
         #####################
         ## GET ASSIGNMENTS ##
@@ -74,33 +88,32 @@ class MatchingEnv(gym.Env):
         iss = collections.Counter(issued_action)
         nonexistent = list((iss - inv).elements())      # Products attempted to issue, but not present in the inventory.
         issued = list((inv & iss).elements())           # Products issued and available for issuing.
-        # print("inventory:", inventory)
-        # print("issued action:", issued_action)
-        # print("action nonexistent:", nonexistent)
-        # print("action issued:", issued)
-        # print("requested:", self.state[:,PARAMS.max_age:])
 
-        if len(R) > 0:
+        if len(requests_today) > 0:
             # Assign all issued products to today's requests, first minimizing shortages, then minimizing the mismatch penalty.
-            shortages, mismatches, assigned, discarded = action_to_matches(PARAMS, issued, R)
+            shortages, mismatches, assigned, discarded, df = action_to_matches(PARAMS, issued, requests_today, day, df)
         else:
             shortages, mismatches, assigned = 0, 0, 0
             discarded = issued.copy()
-        # print("shortages:", shortages)
-        # print("mismatches:", mismatches)
-        # print("assigned:", assigned)
-        # print("discarded:", discarded)
+
+        num_outdates = sum(I[:,PARAMS.max_age-1])
 
         ######################
         ## CALCULATE REWARD ##
         ######################
 
         reward = 0
-        reward -= 50 * len(nonexistent)              # Penalty of 50 for each nonexistent product that was attempted to issue.
+        reward -= 50 * len(nonexistent)         # Penalty of 50 for each nonexistent product that was attempted to issue.
         reward -= 10 * shortages                # Penalty of 10 for each shortage.
         reward -= 5 * mismatches                # Penalty of 5 multiplied by the total mismatch penalty, which is weighted according to relative immunogenicity.
-        reward -= sum(I[:,PARAMS.max_age-1])    # Penalty of 1 for each outdated product.
-        reward -= len(discarded)                     # Penalty of 1 for each discarded product (issued but not assigned).
+        reward -= num_outdates                  # Penalty of 1 for each outdated product.
+        reward -= len(discarded)                # Penalty of 1 for each discarded product (issued but not assigned).
+
+        df.loc[day,"reward"] = reward
+        df.loc[day,"issued but nonexistent"] = len(nonexistent)
+        df.loc[day,"num shortages"] = shortages
+        df.loc[day,"num outdates"] = num_outdates
+        df.loc[day,"issued but discarded"] = len(discarded)
 
         ######################
         ## GO TO NEXT STATE ##
@@ -120,7 +133,6 @@ class MatchingEnv(gym.Env):
         I[:,0] = dc.sample_supply_single_day(PARAMS, len(I), max(0, hospital.inventory_size - int(sum(sum(I)))))
 
         # Remove all today's requests and increase lead time of all other requests.
-        R = self.state[:,PARAMS.max_age:]
         R = np.insert(R[:, :-1], 0, values=0, axis=1)
 
         # Sample new requests
@@ -129,4 +141,4 @@ class MatchingEnv(gym.Env):
         # Update the state with the updated inventory and requests.
         self.state = np.concatenate((I, R), axis=1)
 
-        return self.state, reward, self.day
+        return self.state, reward, self.day, df

@@ -6,7 +6,7 @@ from blood import *
 
 # Single-hospital setup: MINRAR model for matching within a single hospital.
 # I and R are both lists of blood groups (int format), where I = issued products, R = today's requests
-def action_to_matches(PARAMS, I, R):
+def action_to_matches(PARAMS, I, R, day, df):
 
     ################
     ## PARAMETERS ##
@@ -65,7 +65,7 @@ def action_to_matches(PARAMS, I, R):
     if "Fyb" in antigens:
         model.setObjectiveN(expr =  quicksum(
                                         quicksum(x[i,r] * (1 - C[i,r,k]) * w[k] for k in A_no_Fyb)
-                                        + x[i,r] * (1 - C[i,r,A["Fyb"]]) * bin(R)[A["Fya"]+2] * w[A["Fyb"]]
+                                        + x[i,r] * (1 - C[i,r,A["Fyb"]]) * bin(r)[A["Fya"]+2] * w[A["Fyb"]]
                                     for i in _I for r in _R), index=1, priority=0, name="mismatches")
     else:
         model.setObjectiveN(expr =  quicksum(
@@ -87,7 +87,13 @@ def action_to_matches(PARAMS, I, R):
             x[index0, index1] = var.X
 
     xi = x.sum(axis=1)
-    assigned = [I[i] for i in _I if xi[i] > 0]
+    assigned = [i for i in _I if xi[i] > 0]
     discarded = [I[i] for i in _I if xi[i] == 0]
 
-    return shortages, mismatches, assigned, discarded
+    for i in assigned:
+        for r in _R:
+            for ag in [ag for ag in A.keys() if C[i,r,A[ag]] == 0]:
+                if (ag != "Fyb") or (bin(r)[A["Fya"]+2] == 1):
+                    df.loc[day,[f"num mismatches {ag}"]] += 1
+
+    return shortages, mismatches, [I[i] for i in assigned], discarded, df
