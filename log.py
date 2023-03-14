@@ -27,7 +27,7 @@ def initialize_output_dataframe(SETTINGS, PARAMS, hospital, episode):
     # header += ["objval shortages", "objval mismatches", "objval substitution", "objval fifo", "objval usability"]
 
     # RL stats.
-    header = ["epsilon start", "epsilon decay", "epsilon min", "epsilon current", "learning rate", "gamma", "batch size"]
+    header += ["epsilon start", "epsilon decay", "epsilon min", "epsilon current", "learning rate", "gamma", "batch size"]
     
     # Information about patients, donors, demand and supply.
     # header += ["num patients"] + [f"num {eth} patients" for eth in ethnicities]
@@ -49,7 +49,7 @@ def initialize_output_dataframe(SETTINGS, PARAMS, hospital, episode):
 
     # Matching performance.
     header += ["reward", "issued but nonexistent", "issued but discarded"]
-    header += ["num outdates"] + ["num shortages"]
+    header += ["num outdates", "num shortages"]
     # header += [f"num outdates {major}" for major in ABOD_names] + [f"num shortages {major}" for major in ABOD_names]
     header += [f"num mismatches {ag}" for ag in antigens]
     # header += [f"num shortages {pg}" for pg in patgroups] + [f"num {pg} {major+1} units short" for pg in patgroups for major in range(4)] + ["num unavoidable shortages"]
@@ -76,10 +76,10 @@ def initialize_output_dataframe(SETTINGS, PARAMS, hospital, episode):
     df.loc[:,"init days"] = SETTINGS.init_days
     df.loc[:,"supply scenario"] = f"cau{round(SETTINGS.donor_eth_distr[0]*100)}_afr{round(SETTINGS.donor_eth_distr[1]*100)}_asi{round(SETTINGS.donor_eth_distr[2]*100)}_{episode}"
     
-    df.loc[:,"epsilon start"] = SETTINGS.epsilon
+    # df.loc[:,"epsilon start"] = SETTINGS.epsilon
     df.loc[:,"epsilon decay"] = SETTINGS.epsilon_decay
     df.loc[:,"epsilon min"] = SETTINGS.epsilon_min
-    df.loc[:,"learning rate"] = SETTINGS.learning_rate
+    df.loc[:,"learning rate"] = SETTINGS.alpha
     df.loc[:,"gamma"] = SETTINGS.gamma
     df.loc[:,"batch size"] = SETTINGS.batch_size
 

@@ -22,7 +22,6 @@
 # *.ipynb
 *.pptx
 *.xlsx
-*.txt
 
 # cache
 __pycache__/

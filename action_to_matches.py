@@ -64,12 +64,12 @@ def action_to_matches(PARAMS, I, R, day, df):
     model.setObjectiveN(expr =  quicksum(1 - quicksum(x[i,r] for i in _I) for r in _R), index=0, priority=1, name="shortages")
     if "Fyb" in antigens:
         model.setObjectiveN(expr =  quicksum(
-                                        quicksum(x[i,r] * (1 - C[i,r,k]) * w[k] for k in A_no_Fyb)
-                                        + x[i,r] * (1 - C[i,r,A["Fyb"]]) * bin(r)[A["Fya"]+2] * w[A["Fyb"]]
+                                        quicksum(x[i,r] * C[i,r,k] * w[k] for k in A_no_Fyb)
+                                        + x[i,r] * C[i,r,A["Fyb"]] * int(bin(r)[A["Fya"]+2]) * w[A["Fyb"]]
                                     for i in _I for r in _R), index=1, priority=0, name="mismatches")
     else:
         model.setObjectiveN(expr =  quicksum(
-                                        quicksum(x[i,r] * (1 - C[i,r,k]) * w[k] for k in A_no_Fyb)
+                                        quicksum(x[i,r] * C[i,r,k] * w[k] for k in A_no_Fyb)
                                     for i in _I for r in _R), index=1, priority=0, name="mismatches")
 
     model.optimize()

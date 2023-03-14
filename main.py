@@ -17,18 +17,15 @@ def main():
     PARAMS = Params(SETTINGS)
 
     for path in ["results", "results/"+SETTINGS.model_name]:
-        check_dir_existence(path)
-
-    # Get the hospital's type ('regional' or 'university')
-    htype = max(SETTINGS.n_hospitals, key = lambda i: SETTINGS.n_hospitals[i])
+        SETTINGS.check_dir_existence(path)
 
     print("CREATING ENVIRONMENT")
-    env = MatchingEnv(SETTINGS, PARAMS, htype)
+    env = MatchingEnv(SETTINGS, PARAMS)
     print("CREATING DQN")
     dqn = DQN(SETTINGS, env)
 
     # Train the agent
-    dqn.train(SETTINGS, PARAMS, htype)
+    dqn.train(SETTINGS, PARAMS)
 
 
 
