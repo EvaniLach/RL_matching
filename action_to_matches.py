@@ -22,7 +22,7 @@ def action_to_matches(PARAMS, I, R, day, df):
     _I = list(range(len(I)))
     _R = list(range(len(R)))
 
-    # I × R × A, for each combination for i and r, whether the match is compatible on a (1) or not (0)
+    # I x R x A, for each combination for i and r, whether the match is compatible on a (1) or not (0)
     C = precompute_compatibility(I, R)
 
     ############

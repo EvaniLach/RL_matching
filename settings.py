@@ -61,7 +61,7 @@ class Settings():
         }
 
         # Size factor for distribution center and hospitals.
-        # Average daily demand × size factor = inventory size.
+        # Average daily demand x size factor = inventory size.
         self.inv_size_factor_dc = 6         # CHANGE (no doubt)
         self.inv_size_factor_hosp = 3
 

@@ -14,21 +14,21 @@ class MatchingEnv(gym.Env):
         self.num_bloodgroups = 2**len(PARAMS.major + PARAMS.minor)
 
         # # DAY-BASED
-        # # Each state is a matrix of 2**len(antigens) × (35 + 8)
+        # # Each state is a matrix of 2**len(antigens) x (35 + 8)
         # # Vertical: all considered blood groups, each row index representing the integer representation of a blood group.
         # # Horizontal: product age (0,1,...,34) + number of days until issuing (6,5,...,0)
         # # Each cell contains the number of requests/products of that type
         # self.state = np.zeros([self.num_bloodgroups, PARAMS.max_age + PARAMS.max_lead_time])
 
         # # DAY-BASED
-        # # Each action is a matrix of 2**len(antigens) × inventory size
+        # # Each action is a matrix of 2**len(antigens) x inventory size
         # # Vertical: all considered blood groups
         # # Horizontal: number of products issued from that blood group (possibly in binary notation)
         # I_size = SETTINGS.inv_size_factor_hosp * SETTINGS.avg_daily_demand[htype]
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.num_bloodgroups, I_size))                     # real number, one-hot encoded
 
         # REQUEST-BASED
-        # Each state is a matrix of 2**len(antigens) × (35 + 8 + 1)
+        # Each state is a matrix of 2**len(antigens) x (35 + 8 + 1)
         # Vertical: all considered blood groups, each row index representing the integer representation of a blood group.
         # Horizontal: product age (0,1,...,34) + number of days until issuing (7,6,...,0) + binary indicating which request is considered currently.
         # Each cell (except for the right-most column) contains the number of requests/products of that type.
@@ -79,7 +79,7 @@ class MatchingEnv(gym.Env):
         # List of all considered bloogroups in integer representation.
         bloodgroups = list(range(self.num_bloodgroups))
 
-        # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| × max age
+        # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| x max age
         I = self.state[:,:PARAMS.max_age]
         R = self.state[:,PARAMS.max_age:-1]
         current_r = self.state[:,-1]
@@ -117,7 +117,7 @@ class MatchingEnv(gym.Env):
         bloodgroups = list(range(self.num_bloodgroups))
         antigens = PARAMS.major + PARAMS.minor
 
-        # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| × max age
+        # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| x max age
         I = self.state[:,:PARAMS.max_age]
         R = self.state[:,PARAMS.max_age:-1]
         r = int(np.argmax(self.state[:,-1]))
@@ -232,7 +232,7 @@ class MatchingEnv(gym.Env):
     #     # List of all considered bloogroups in integer representation.
     #     bloodgroups = list(range(self.num_bloodgroups))
 
-    #     # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| × max age
+    #     # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| x max age
     #     I = self.state[:,:PARAMS.max_age]
     #     R = self.state[:,PARAMS.max_age:]
         
