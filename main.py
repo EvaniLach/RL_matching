@@ -2,7 +2,7 @@ from env import *
 from dqn import *
 
 import sys
-sys.path.insert(1, 'C:/Users/Merel/Documents/Sanquin/Projects/RBC matching/Paper patient groups/blood_matching/')
+# sys.path.insert(1, 'C:/Users/Merel/Documents/Sanquin/Projects/RBC matching/Paper patient groups/blood_matching/')
 from settings import *
 from params import *
 
