@@ -20,14 +20,15 @@ class DQN:
 
 
     def save(self, SETTINGS, df, e):
-        for folder in ["results", "models"]:
-            SETTINGS.check_dir_existence(SETTINGS.home_dir + folder)
-            SETTINGS.check_dir_existence(SETTINGS.home_dir + folder + f"/{SETTINGS.model_name}")
 
-        df.to_csv(SETTINGS.home_dir + f"results/{SETTINGS.model_name}/RL_{e}.csv", sep=',', index=True)
+        df.to_csv(SETTINGS.generate_filename(SETTINGS, "results", e)+".csv", sep=',', index=True)
 
-        SETTINGS.check_dir_existence(SETTINGS.home_dir + f"models/{SETTINGS.model_name}/a{SETTINGS.alpha}_g{SETTINGS.gamma}_b{SETTINGS.batch_size}")
-        self.model.save(SETTINGS.home_dir + f"models/{SETTINGS.model_name}/a{SETTINGS.alpha}_g{SETTINGS.gamma}_b{SETTINGS.batch_size}/RL_{e}")
+        self.model.save(SETTINGS.generate_filename(SETTINGS, "models", e))
+
+
+    def load(self, SETTINGS, e):
+        self.model = tf.keras.models.load_model(SETTINGS.generate_filename(SETTINGS, "models", e))
+
     
     # Initialize the NN for generating Q-matrices.
     def build_model(self):
@@ -66,7 +67,8 @@ class DQN:
 
     # REQUEST-BASED
     def update(self):
-
+        
+        # Sample a batch of experiences from the model's memory.
         batch = random.sample(self.memory, self.batch_size)
 
         states = []
@@ -74,21 +76,26 @@ class DQN:
 
         for sample in batch:
 
+            # Unpack the experience tuple.
             state, action, reward, next_state, _ = sample
 
-            # Compute the target Q-values
-            Q_next = self.model.predict(np.ravel(next_state).reshape(1,-1), verbose=0)             # Predict the Q-values for the next states
+            # Predict the Q-values for the next state.
+            Q_next = self.model.predict(np.ravel(next_state).reshape(1,-1), verbose=0)
+            # Get the maximum Q-value for the next state.
             max_Q_next = np.max(Q_next, axis=1)
-            Q_target = reward + (self.gamma * max_Q_next)  # Compute the target Q-values using the Bellman equation
+            # Compute the target Q-values using the Bellman equation.
+            Q_target = reward + (self.gamma * max_Q_next)
 
-            # Compute the current Q-values
-            Q_matrix = self.model.predict(np.ravel(state).reshape(1,-1), verbose=0)             # Predict the Q-values for the next states
-            Q_matrix[:,action] = Q_target # Update the target Q-values for the actions taken
+            # Predict the Q-values for the current state.
+            Q_matrix = self.model.predict(np.ravel(state).reshape(1,-1), verbose=0)
+            # Update the target Q-values for the actions taken.
+            Q_matrix[:,action] = Q_target
 
+            # Add the state and Q-matrix to the lists for training the model.
             states.append(np.ravel(state).reshape(1,-1))
             Q_matrices.append(np.ravel(Q_matrix).reshape(1,-1))
 
-        # Train the model on the batch using the target Q-values as the target output
+        # Train the model on the batch using the target Q-values as the target output.
         self.model.train_on_batch(np.concatenate(states, axis=0), np.concatenate(Q_matrices, axis=0))
 
 
@@ -121,33 +128,43 @@ class DQN:
 
 
     def train(self, SETTINGS, PARAMS):
-           
+        # Calculate the total number of days for the simulation.
+        n_days = SETTINGS.init_days + SETTINGS.test_days
+        # Determine the days at which to save the model.
+        model_saving_days = [day for day in range(n_days) if day % 100 == 0] + [n_days-1]
+
         # Run the simulation for the given range of episodes.
         for e in range(SETTINGS.episodes[0], SETTINGS.episodes[1]):
             print(f"\nEpisode: {e}")
+            # If this isn't the first episode, load the previous episode's saved model.
+            if e > 0:
+                self.load(SETTINGS, e-1)
 
             # Start with an empty memory and initial epsilon.
             self.memory = []
             self.epsilon = SETTINGS.epsilon
-            
-            # Reset the environment
+
+            # Reset the environment.
             self.env.reset(SETTINGS, PARAMS, e, max(SETTINGS.n_hospitals, key = lambda i: SETTINGS.n_hospitals[i]))
+            # Initialize a dataframe to store the output of the simulation.
             df = initialize_output_dataframe(SETTINGS, PARAMS, self.env.hospital, e)
 
+            # Set the current state and day to the environment's initial state and day.
             state = self.env.state
             day = self.env.day
-            
-            while day < (SETTINGS.init_days + SETTINGS.test_days):
+
+            # Loop through each day in the simulation.
+            while day < n_days:
 
                 # REQUEST-BASED
-                done = False    
+                done = False
                 todays_reward = 0
 
                 # If there are no requests for today, proceed to the next day.
                 if sum(self.env.state[:,-1]) == 0:
-                    self.env.next_day(PARAMS, dc, hospital)
+                    self.env.next_day(PARAMS)
                     done = True
-                
+
                 # # DAY-BASED
                 # action = self.select_action(state)    # Select an action using the Q-network's epsilon-greedy policy
                 # next_state, reward, df = self.env.step(SETTINGS, PARAMS, action, dc, hospital, day, df)   # Take the action and receive the next state, reward and next day
@@ -158,28 +175,36 @@ class DQN:
                 #     self.update()
 
                 # REQUEST-BASED 
+                # If there are requests for today, loop through each request.
                 while not done:
-                    action = self.select_action(state)    # Select an action using the Q-network's epsilon-greedy policy
+                    # Select an action using the model's epsilon-greedy policy.
+                    action = self.select_action(state)
+                    # Calculate the reward and update the dataframe.
                     reward, df = self.env.calculate_reward(SETTINGS, PARAMS, action, day, df)
                     todays_reward += reward
+                    # Get the next state and whether the episode is done.
                     next_state, done = self.env.next_request(PARAMS)
-                    self.memory.append([state, action, reward, next_state, day])    # Store the experience tuple in memory
+                    # Store the experience tuple in memory.
+                    self.memory.append([state, action, reward, next_state, day])
+                    # Update the current state to the next state.
                     state = next_state
 
-                if len(self.memory) >= self.batch_size: 
+                # If there are enough experiences in memory, update the model.
+                if len(self.memory) >= self.batch_size:
                     self.update()
 
+                # Update the dataframe with the current day's information.
                 df.loc[day,"logged"] = True
                 print(f"Day {day}, reward {todays_reward}")
-                
-                # Update epsilon
+
+                # Update the model's epsilon value.
                 df.loc[day,"epsilon current"] = self.epsilon
                 self.epsilon = max(self.epsilon * SETTINGS.epsilon_decay, SETTINGS.epsilon_min)
-                
-                # Save model and log file.
-                if day % 50 == 0:
+
+                # Save model and log file on predifined days.
+                if day in model_saving_days:
                     self.save(SETTINGS, df, e)
 
+                # Set the current day to the environment's current day.
                 day = self.env.day
                 
-            

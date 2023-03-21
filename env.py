@@ -14,21 +14,21 @@ class MatchingEnv(gym.Env):
         self.num_bloodgroups = 2**len(PARAMS.major + PARAMS.minor)
 
         # # DAY-BASED
-        # # Each state is a matrix of 2**len(antigens) x (35 + 8)
+        # # Each state is a matrix of 2**len(antigens) × (35 + 8)
         # # Vertical: all considered blood groups, each row index representing the integer representation of a blood group.
         # # Horizontal: product age (0,1,...,34) + number of days until issuing (6,5,...,0)
         # # Each cell contains the number of requests/products of that type
         # self.state = np.zeros([self.num_bloodgroups, PARAMS.max_age + PARAMS.max_lead_time])
 
         # # DAY-BASED
-        # # Each action is a matrix of 2**len(antigens) x inventory size
+        # # Each action is a matrix of 2**len(antigens) × inventory size
         # # Vertical: all considered blood groups
         # # Horizontal: number of products issued from that blood group (possibly in binary notation)
         # I_size = SETTINGS.inv_size_factor_hosp * SETTINGS.avg_daily_demand[htype]
         # self.action_space = gym.spaces.Box(low=0, high=1, shape=(self.num_bloodgroups, I_size))                     # real number, one-hot encoded
 
         # REQUEST-BASED
-        # Each state is a matrix of 2**len(antigens) x (35 + 8 + 1)
+        # Each state is a matrix of 2**len(antigens) × (35 + 8 + 1)
         # Vertical: all considered blood groups, each row index representing the integer representation of a blood group.
         # Horizontal: product age (0,1,...,34) + number of days until issuing (7,6,...,0) + binary indicating which request is considered currently.
         # Each cell (except for the right-most column) contains the number of requests/products of that type.
@@ -58,9 +58,11 @@ class MatchingEnv(gym.Env):
         self.dc = Distribution_center(SETTINGS, e)
         self.hospital = Hospital(SETTINGS, htype, e)
 
+        # Create the part of the state representing the inventory.
         I = np.zeros([self.num_bloodgroups, PARAMS.max_age])
         I[:,0] = self.dc.sample_supply_single_day(PARAMS, len(I), self.hospital.inventory_size)
 
+        # Create the part of the state representing requests.
         R = self.hospital.sample_requests_single_day(PARAMS, [self.num_bloodgroups, PARAMS.max_lead_time], self.day)
 
         # REQUEST-BASED
@@ -79,7 +81,7 @@ class MatchingEnv(gym.Env):
         # List of all considered bloogroups in integer representation.
         bloodgroups = list(range(self.num_bloodgroups))
 
-        # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| x max age
+        # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| × max age
         I = self.state[:,:PARAMS.max_age]
         R = self.state[:,PARAMS.max_age:-1]
         current_r = self.state[:,-1]
@@ -117,7 +119,7 @@ class MatchingEnv(gym.Env):
         bloodgroups = list(range(self.num_bloodgroups))
         antigens = PARAMS.major + PARAMS.minor
 
-        # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| x max age
+        # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| × max age
         I = self.state[:,:PARAMS.max_age]
         R = self.state[:,PARAMS.max_age:-1]
         r = int(np.argmax(self.state[:,-1]))
@@ -144,15 +146,20 @@ class MatchingEnv(gym.Env):
 
             else:
                 A = {antigens[k] : k for k in range(len(antigens))}
-                A_no_Fyb = [A[ag] for ag in A.keys() if ag != "Fyb"]
+                A_no_Fyb = [ag for ag in A.keys() if ag != "Fyb"]
 
                 # Retrieve the antigen (and patient group) weights.
                 w = np.array(PARAMS.relimm_weights[antigens])[0]
 
                 # Mismatch penalties.
-                reward -= sum(comp[k] * w[k] for k in A_no_Fyb)
+                mismatch_penalties = 0
+                for ag in A_no_Fyb:
+                    mismatch_penalties += comp[A[ag]] * w[A[ag]]
+                    df.loc[day, f"num mismatches {ag}"] += comp[A[ag]]
                 if "Fyb" in antigens:
-                    reward -= comp[A["Fyb"]] * int(bin(r)[A["Fya"]+2]) * w[A["Fyb"]]
+                    mismatch_penalties += comp[A["Fyb"]] * int(bin(r)[A["Fya"]+2]) * w[A["Fyb"]]
+                    df.loc[day, f"num mismatches Fyb"] += comp[A["Fyb"]] * int(bin(r)[A["Fya"]+2])
+                reward -= mismatch_penalties
 
         else:
             reward -= 50 + 10     # The issued product is not present in the inventory.
@@ -232,7 +239,7 @@ class MatchingEnv(gym.Env):
     #     # List of all considered bloogroups in integer representation.
     #     bloodgroups = list(range(self.num_bloodgroups))
 
-    #     # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| x max age
+    #     # The inventory is represented by the left part of the state -> matrix of size |bloodgroups| × max age
     #     I = self.state[:,:PARAMS.max_age]
     #     R = self.state[:,PARAMS.max_age:]
         
