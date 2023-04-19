@@ -8,9 +8,6 @@ class Blood():
         self.age = age
         self.days_to_issuing = days_to_issuing
 
-def vector_to_bloodgroup_index(vector):
-    return int("".join(str(i) for i in vector),2)
-
 # Returns the integer value for the first 'n_antigens' of a given bloodgroup, also expressed as an integer number.
 # Example: n_antigens = 3, bg_int = 31 -> 11101 -> 111 -> 7
 def comp_antigens(bg_int, n_antigens):

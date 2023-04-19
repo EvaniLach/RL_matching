@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+import pickle
 
 class Settings():
 
@@ -11,8 +12,9 @@ class Settings():
         # Output files will be stored in directory results/[model_name].
         # self.model_name = "daily_scratch"       # matching per day, training from scratch
         # self.model_name = "daily_guided"        # matching per day, training guided by MINRAR strategy
-        self.model_name = "request_scratch"     # matching per request, training from scratch
+        # self.model_name = "request_scratch"     # matching per request, training from scratch
         # self.model_name = "request_guided"      # matching per request, training guided by MINRAR strategy
+        self.model_name = "M2"
 
         #########################
         # SIMULATION PARAMETERS #
@@ -68,15 +70,16 @@ class Settings():
         # REINFORCEMENT LEARNING #
         ##########################
 
-        # "train" for training the RL model
-        # "test" for running simulations with saved model
+        # "train": unsupervised learning with epsilon-greedy strategy
+        # "train_minrar": supervised learning using MINRAR strategy
+        # "test": run simulations using a trained model
         self.RL_mode = "train"
 
         self.epsilon = 1.0
         self.epsilon_min = 0.01
         self.epsilon_decay = 0.995
-        self.alpha = 0.1           # learning rate
-        self.gamma = 0.5           # discount factor
+        self.alpha = 0.001          # learning rate
+        self.gamma = 0.01            # discount factor
         self.batch_size = 50        # batch size for replay buffer
 
         ####################
@@ -89,11 +92,13 @@ class Settings():
 
 
     # Generate a file name for exporting log or result files.
-    def generate_filename(self, SETTINGS, output_type, e):
+    def generate_filename(self, output_type, e=""):
 
-        path = self.home_dir + f"/{output_type}/{self.model_name}/"
-        path += f"a{SETTINGS.alpha}_g{SETTINGS.gamma}_b{SETTINGS.batch_size}/"
-        path += f"{self.method}_{e}"
+        htype = max(self.n_hospitals, key = lambda i: self.n_hospitals[i])[:3]
+
+        path = self.home_dir + f"/{output_type}/{self.model_name}_{''.join(self.minor)}/"
+        path += f"a{self.alpha}_g{self.gamma}_b{self.batch_size}/"
+        path += f"{htype}_{e}"
 
         return path
 
@@ -102,3 +107,8 @@ class Settings():
     def check_dir_existence(self, path):
         if os.path.exists(path) == False:
             os.mkdir(path)
+
+
+    def unpickle(self, path):
+        with open(path, 'rb') as f:
+            return pickle.load(f)
